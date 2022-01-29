@@ -1,0 +1,26 @@
+name: Dotnet Test
+on:
+  workflow_call:
+    secrets:
+      github-token:
+        description: secrets.BUILD_GITHUB_TOKEN
+        required: true
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Test
+        env:
+          GITHUB_TOKEN: ${{ secrets.github-token }}
+          GITHUB_USERNAME: foo
+        run: dotnet test -c Release --nologo -r artifacts --collect:"XPlat Code Coverage"
+
+      - uses: actions/upload-artifact@v2
+        if: always()
+        with:
+          name: tests
+          path: artifacts
