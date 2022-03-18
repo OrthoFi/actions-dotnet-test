@@ -1,23 +1,28 @@
-name: Dotnet Test
+name: Test
 on:
   workflow_call:
+    inputs:
+      filter:
+        description: Filter to apply when running tests
+        required: true
+        type: string
+
     secrets:
       github-token:
         description: secrets.BUILD_GITHUB_TOKEN
         required: true
 
 jobs:
-  test:
-    name: Test
+  run:
+    name: Run
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
 
-      - name: Test
+      - run: dotnet test -c Release --nologo --filter ${{ inputs.filter }} -r artifacts --collect:"XPlat Code Coverage"
         env:
           GITHUB_TOKEN: ${{ secrets.github-token }}
           GITHUB_USERNAME: foo
-        run: dotnet test -c Release --nologo -r artifacts --collect:"XPlat Code Coverage"
 
       - uses: actions/upload-artifact@v2
         if: always()
