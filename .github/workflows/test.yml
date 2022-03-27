@@ -7,6 +7,11 @@ on:
         required: true
         type: string
 
+      solution:
+        description: Solution containing test projects
+        required: false
+        type: string
+
     secrets:
       github-token:
         description: secrets.BUILD_GITHUB_TOKEN
@@ -19,7 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - run: dotnet test -c Release --nologo --filter ${{ inputs.filter }} -r artifacts --collect:"XPlat Code Coverage"
+      - run: dotnet test ${{ inputs.solution }} -c Release --nologo --filter ${{ inputs.filter }} -r artifacts --collect:"XPlat Code Coverage"
         env:
           GITHUB_TOKEN: ${{ secrets.github-token }}
           GITHUB_USERNAME: foo
