@@ -16,21 +16,68 @@ on:
       github-token:
         description: secrets.BUILD_GITHUB_TOKEN
         required: true
+      sonar-token:
+        description: secrets.SONAR_TOKEN
+        required: true
 
 jobs:
   run:
     name: Run
     runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.github-token }}
+      GITHUB_USERNAME: GitHub
     steps:
-      - uses: actions/checkout@v2
-
-      - run: dotnet test ${{ inputs.solution }} -c Release --nologo --filter ${{ inputs.filter }} -r artifacts --collect:"XPlat Code Coverage"
-        env:
-          GITHUB_TOKEN: ${{ secrets.github-token }}
-          GITHUB_USERNAME: foo
-
-      - uses: actions/upload-artifact@v2
-        if: always()
+      - uses: actions/setup-java@v1
         with:
-          name: tests
-          path: artifacts
+          java-version: 1.11
+
+      - uses: actions/checkout@v3
+
+      - name: Cache SonarCloud Packages
+        uses: actions/cache@v3
+        with:
+          path: ~/sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+
+      - name: Cache SonarCloud Scanner
+        id: cache-sonar-scanner
+        uses: actions/cache@v3
+        with:
+          path: ./.sonar/scanner
+          key: ${{ runner.os }}-sonar-scanner
+          restore-keys: ${{ runner.os }}-sonar-scanner
+
+      - name: Install SonarCloud scanner
+        if: steps.cache-sonar-scanner.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          New-Item -Path ./.sonar/scanner -ItemType Directory
+          dotnet tool update dotnet-sonarscanner --tool-path ./.sonar/scanner
+
+      - name: Start Sonar Scanner
+        shell: pwsh
+        run: |
+          $key = "${{ github.repository }}".Replace("/", "_")
+
+          .\.sonar\scanner\dotnet-sonarscanner begin `
+            /o:orthofi `
+            /k:$key `
+            /d:sonar.host.url=https://sonarcloud.io `
+            /d:sonar.cs.opencover.reportsPaths=artifacts/**/*.xml `
+            /d:sonar.login="${{ secrets.sonar-token }}"
+
+      - name: Test
+        env:
+          SONAR_TOKEN: ${{ secrets.sonar-token }}
+        shell: pwsh
+        run: |
+          dotnet test ${{ inputs.solution }} -c Release --nologo --filter ${{ inputs.filter }} -r artifacts --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
+
+      - name: Stop Sonar Scanner
+        shell: pwsh
+        if: always()
+        run: |
+          .\.sonar\scanner\dotnet-sonarscanner end `
+            /d:sonar.login="${{ secrets.sonar-token }}"
