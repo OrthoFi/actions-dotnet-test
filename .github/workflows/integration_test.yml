@@ -65,7 +65,7 @@ jobs:
     needs: [ecr]
     services:
       ofi-sql:
-        image: 221675528805.dkr.ecr.us-east-1.amazonaws.com/db-test:dev
+        image: 221675528805.dkr.ecr.us-east-1.amazonaws.com/db:dev-test
         ports:
           - 1433:1433
         credentials:
