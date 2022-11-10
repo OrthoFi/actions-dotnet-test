@@ -12,6 +12,11 @@ on:
         required: false
         type: string
 
+      ssm-parameter-paths:
+        description: Paths to retrieve parameters by. Subsequent paths should be comma delimited
+        required: false
+        type: string
+
     secrets:
       github-token:
         description: secrets.BUILD_GITHUB_TOKEN
@@ -19,6 +24,15 @@ on:
       sonar-token:
         description: secrets.SONAR_TOKEN
         required: true
+      aws-access-key-id:
+        description: secrets.BUILD_AWS_ACCESS_KEY_ID
+        required: false
+      aws-secret-access-key:
+        description: secrets.BUILD_AWS_SECRET_ACCESS_KEY
+        required: false
+      aws-role-to-assume:
+        description: secrets.OCKERS_BUILD_ROLE
+        required: false
 
 jobs:
   run:
@@ -67,6 +81,27 @@ jobs:
             /d:sonar.host.url=https://sonarcloud.io `
             /d:sonar.cs.opencover.reportsPaths=artifacts/**/*.xml `
             /d:sonar.login="${{ secrets.sonar-token }}"
+
+      - name: Login to AWS
+        if: ${{ inputs.ssm-parameter-paths }}
+        uses: aws-actions/configure-aws-credentials@v1
+        with: 
+          aws-access-key-id: ${{ secrets.aws-access-key-id }}
+          aws-secret-access-key: ${{ secrets.aws-secret-access-key}}
+          aws-region: us-east-1
+          role-to-assume: ${{ secrets.aws-role-to-assume }}
+
+      - name: Get Parameters
+        if: ${{ inputs.ssm-parameter-paths }}
+        id: ssm-parameter
+        uses: orthofi/actions-aws-ssm-get-by-path@v1
+        with:
+          paths: ${{ inputs.ssm-parameter-paths }}
+          save-to-environment: true
+          recursive: true
+          decrypt: true
+          prefix: OFI__
+          delimiter: __
 
       - name: Test
         env:
