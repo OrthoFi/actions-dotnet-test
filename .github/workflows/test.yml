@@ -108,7 +108,7 @@ jobs:
           SONAR_TOKEN: ${{ secrets.sonar-token }}
         shell: pwsh
         run: |
-          dotnet test ${{ inputs.solution }} -v q -c Release --nologo --filter ${{ inputs.filter }} -r artifacts --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
+          dotnet test ${{ inputs.solution }} -v q -c Release --nologo --filter ${{ inputs.filter }} --results-directory artifacts --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
 
       - name: Stop Sonar Scanner
         shell: pwsh
