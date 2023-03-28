@@ -17,29 +17,12 @@ on:
         required: false
         type: string
 
-    secrets:
-      github-token:
-        description: secrets.BUILD_GITHUB_TOKEN
-        required: true
-      sonar-token:
-        description: secrets.SONAR_TOKEN
-        required: true
-      aws-access-key-id:
-        description: secrets.BUILD_AWS_ACCESS_KEY_ID
-        required: false
-      aws-secret-access-key:
-        description: secrets.BUILD_AWS_SECRET_ACCESS_KEY
-        required: false
-      aws-role-to-assume:
-        description: secrets.OCKERS_BUILD_ROLE
-        required: false
-
 jobs:
   run:
     name: Run
     runs-on: ubuntu-latest
     env:
-      GITHUB_TOKEN: ${{ secrets.github-token }}
+      GITHUB_TOKEN: ${{ secrets.BUILD_GITHUB_TOKEN }}
       GITHUB_USERNAME: GitHub
     steps:
       - uses: actions/setup-java@v3
@@ -81,16 +64,16 @@ jobs:
             /k:$key `
             /d:sonar.host.url=https://sonarcloud.io `
             /d:sonar.cs.opencover.reportsPaths=artifacts/**/*.xml `
-            /d:sonar.login="${{ secrets.sonar-token }}"
+            /d:sonar.login="${{ secrets.SONAR_TOKEN }}"
 
       - name: Login to AWS
         if: ${{ inputs.ssm-parameter-paths }}
         uses: aws-actions/configure-aws-credentials@v1
         with:
-          aws-access-key-id: ${{ secrets.aws-access-key-id }}
-          aws-secret-access-key: ${{ secrets.aws-secret-access-key}}
+          aws-access-key-id: ${{ secrets.BUILD_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.BUILD_AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
-          role-to-assume: ${{ secrets.aws-role-to-assume }}
+          role-to-assume: ${{ vars.AWS_BUILD_ROLE }}
 
       - name: Get Parameters
         if: ${{ inputs.ssm-parameter-paths }}
@@ -106,7 +89,7 @@ jobs:
 
       - name: Test
         env:
-          SONAR_TOKEN: ${{ secrets.sonar-token }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         shell: pwsh
         run: |
           dotnet test ${{ inputs.solution }} -v q -c Release --nologo --filter ${{ inputs.filter }} --results-directory artifacts --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
@@ -116,4 +99,4 @@ jobs:
         if: always()
         run: |
           .\.sonar\scanner\dotnet-sonarscanner end `
-            /d:sonar.login="${{ secrets.sonar-token }}"
+            /d:sonar.login="${{ secrets.SONAR_TOKEN }}"
