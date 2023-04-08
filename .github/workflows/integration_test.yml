@@ -25,7 +25,7 @@ jobs:
           aws-access-key-id: ${{ secrets.BUILD_AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.BUILD_AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
-          role-to-assume: ${{ secrets.DEV_BUILD_ROLE }}
+          role-to-assume: ${{ vars.ECR_BUILD_ROLE }}
 
       - name: ECR Generate Password
         id: getpw
