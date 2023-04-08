@@ -39,7 +39,7 @@ jobs:
     name: Run
     runs-on: ubuntu-latest
     env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GITHUB_TOKEN: ${{ secrets.BUILD_GITHUB_TOKEN }}
       GITHUB_USERNAME: GitHub
     needs: [ecr]
     services:
