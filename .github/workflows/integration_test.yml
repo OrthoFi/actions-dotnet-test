@@ -94,7 +94,7 @@ jobs:
             /o:orthofi `
             /k:$key `
             /d:sonar.host.url=https://sonarcloud.io `
-            /d:sonar.cs.opencover.reportsPaths=artifacts/**/*.xml `
+            /d:sonar.cs.opencover.reportsPaths=test_results/**/*.xml `
             /d:sonar.login="${{ secrets.SONAR_TOKEN }}"
 
       - uses: aws-actions/configure-aws-credentials@v1-node16
@@ -121,13 +121,13 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
-          dotnet test ${{ inputs.solution }} -v q -c Release --nologo --filter ${{ inputs.filter }} --results-directory test_results --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
+          dotnet test ${{ inputs.solution }} -v:q -c Release --nologo `
+            --filter ${{ inputs.filter }} `
+            --results-directory test_results `
+            --logger "html;logfilename=summary.html" `
+            --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
 
-      - uses: actions/upload-artifact@v3
-        if: always()
-        with:
-          name: tests
-          path: test_results/
+          Write-Output $(Get-Content -Path ./test_results/summary.html) >> $env:GITHUB_STEP_SUMMARY
 
       - name: Stop Sonar Scanner
         shell: pwsh
