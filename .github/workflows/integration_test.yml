@@ -107,14 +107,14 @@ jobs:
       - name: Get Parameters
         if: ${{ inputs.ssm-parameter-paths }}
         id: ssm-parameter
-        uses: orthofi/actions-aws-ssm-get-by-path@v1
+        uses: orthofi/actions-aws-ssm-get-by-path@v2
         with:
-          paths: ${{ inputs.ssm-parameter-paths }}
-          save-to-environment: true
-          recursive: true
           decrypt: true
-          prefix: OFI__
           delimiter: __
+          paths: ${{ inputs.ssm-parameter-paths }}
+          prefix: OFI__
+          recursive: true
+          save-to-environment: true
 
       - name: Test
         shell: pwsh
@@ -128,6 +128,12 @@ jobs:
             --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
 
           Write-Output $(Get-Content -Path ./test_results/summary.html) >> $env:GITHUB_STEP_SUMMARY
+
+      - uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: tests_results
+          path: test_results/
 
       - name: Stop Sonar Scanner
         shell: pwsh
