@@ -12,6 +12,11 @@ on:
         required: false
         type: string
 
+      ssm-parameter-paths:
+        description: Paths to retrieve parameters by. Subsequent paths should be comma delimited
+        required: false
+        type: string
+
 jobs:
   ecr:
     name: ECR
@@ -92,12 +97,37 @@ jobs:
             /d:sonar.cs.opencover.reportsPaths=artifacts/**/*.xml `
             /d:sonar.login="${{ secrets.SONAR_TOKEN }}"
 
+      - uses: aws-actions/configure-aws-credentials@v1-node16
+        with:
+          aws-access-key-id: ${{ secrets.BUILD_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.BUILD_AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+          role-to-assume: ${{ vars.ECR_BUILD_ROLE }}
+
+      - name: Get Parameters
+        if: ${{ inputs.ssm-parameter-paths }}
+        id: ssm-parameter
+        uses: orthofi/actions-aws-ssm-get-by-path@v1
+        with:
+          paths: ${{ inputs.ssm-parameter-paths }}
+          save-to-environment: true
+          recursive: true
+          decrypt: true
+          prefix: OFI__
+          delimiter: __
+
       - name: Test
         shell: pwsh
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
-          dotnet test ${{ inputs.solution }} -v q -c Release --nologo --filter ${{ inputs.filter }} --results-directory artifacts --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
+          dotnet test ${{ inputs.solution }} -v q -c Release --nologo --filter ${{ inputs.filter }} --results-directory test_results --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
+
+      - uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: tests
+          path: test_results/
 
       - name: Stop Sonar Scanner
         shell: pwsh
