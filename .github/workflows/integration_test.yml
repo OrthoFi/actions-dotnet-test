@@ -30,7 +30,7 @@ jobs:
           aws-access-key-id: ${{ secrets.BUILD_AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.BUILD_AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
-          role-to-assume: ${{ vars.ECR_BUILD_ROLE }}
+          role-to-assume: ${{ secrets.OCKERS_BUILD_ROLE }}
 
       - name: ECR Generate Password
         id: getpw
@@ -102,7 +102,7 @@ jobs:
           aws-access-key-id: ${{ secrets.BUILD_AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.BUILD_AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
-          role-to-assume: ${{ vars.ECR_BUILD_ROLE }}
+          role-to-assume: ${{ secrets.OCKERS_BUILD_ROLE }}
 
       - name: Get Parameters
         if: ${{ inputs.ssm-parameter-paths }}
