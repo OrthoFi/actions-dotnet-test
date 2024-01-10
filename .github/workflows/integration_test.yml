@@ -24,7 +24,7 @@ jobs:
     outputs:
       ecrpw: ${{ steps.getpw.outputs.ecrpw }}
     steps:
-      - uses: aws-actions/configure-aws-credentials@v1-node16
+      - uses: aws-actions/configure-aws-credentials@v4.0.0
         id: setup
         with:
           aws-access-key-id: ${{ secrets.BUILD_AWS_ACCESS_KEY_ID }}
@@ -59,7 +59,7 @@ jobs:
       - uses: actions/setup-java@v3
         with:
           distribution: zulu
-          java-version: 11.0.16
+          java-version: 17
 
       - uses: actions/checkout@v3
 
@@ -97,7 +97,7 @@ jobs:
             /d:sonar.cs.opencover.reportsPaths=test_results/**/*.xml `
             /d:sonar.login="${{ secrets.SONAR_TOKEN }}"
 
-      - uses: aws-actions/configure-aws-credentials@v1-node16
+      - uses: aws-actions/configure-aws-credentials@v4.0.0
         with:
           aws-access-key-id: ${{ secrets.BUILD_AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.BUILD_AWS_SECRET_ACCESS_KEY }}
@@ -120,6 +120,7 @@ jobs:
         shell: pwsh
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          OFI__LAUNCH_DARKLY__SDK_KEY: ${{ secrets.LAUNCHDARKLY_DEV_SDK_KEY }}
         run: |
           dotnet test ${{ inputs.solution }} -v:q -c Release --nologo `
             --filter ${{ inputs.filter }} `
