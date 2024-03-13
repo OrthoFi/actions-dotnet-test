@@ -20,7 +20,7 @@ on:
 jobs:
   ecr:
     name: ECR
-    runs-on: ubuntu-latest
+    runs-on: ["self-hosted", "linux", "x64"]
     outputs:
       ecrpw: ${{ steps.getpw.outputs.ecrpw }}
     steps:
@@ -42,7 +42,7 @@ jobs:
 
   run:
     name: Run
-    runs-on: ubuntu-latest
+    runs-on: ["self-hosted", "linux", "x64"]
     env:
       GITHUB_TOKEN: ${{ secrets.BUILD_GITHUB_TOKEN }}
       GITHUB_USERNAME: GitHub
