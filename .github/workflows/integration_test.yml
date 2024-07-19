@@ -56,46 +56,7 @@ jobs:
           username: AWS
           password: ${{ needs.ecr.outputs.ecrpw }}
     steps:
-      - uses: actions/setup-java@v3
-        with:
-          distribution: zulu
-          java-version: 17
-
-      - uses: actions/checkout@v3
-
-      - name: Cache SonarCloud Packages
-        uses: actions/cache@v3
-        with:
-          path: ~/sonar/cache
-          key: ${{ runner.os }}-sonar
-          restore-keys: ${{ runner.os }}-sonar
-
-      - name: Cache SonarCloud Scanner
-        id: cache-sonar-scanner
-        uses: actions/cache@v3
-        with:
-          path: ./.sonar/scanner
-          key: ${{ runner.os }}-sonar-scanner
-          restore-keys: ${{ runner.os }}-sonar-scanner
-
-      - name: Install SonarCloud scanner
-        if: steps.cache-sonar-scanner.outputs.cache-hit != 'true'
-        shell: pwsh
-        run: |
-          New-Item -Path ./.sonar/scanner -ItemType Directory
-          dotnet tool update dotnet-sonarscanner --tool-path ./.sonar/scanner
-
-      - name: Start Sonar Scanner
-        shell: pwsh
-        run: |
-          $key = "${{ github.repository }}".Replace("/", "_")
-
-          .\.sonar\scanner\dotnet-sonarscanner begin `
-            /o:orthofi `
-            /k:$key `
-            /d:sonar.host.url=https://sonarcloud.io `
-            /d:sonar.cs.opencover.reportsPaths=test_results/**/*.xml `
-            /d:sonar.login="${{ secrets.SONAR_TOKEN }}"
+      - uses: actions/checkout@v4
 
       - uses: aws-actions/configure-aws-credentials@v4.0.0
         with:
@@ -119,7 +80,6 @@ jobs:
       - name: Test
         shell: pwsh
         env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           OFI__LAUNCH_DARKLY__SDK_KEY: ${{ secrets.LAUNCHDARKLY_DEV_SDK_KEY }}
         run: |
           dotnet test ${{ inputs.solution }} -v:q -c Release --nologo `
@@ -130,15 +90,8 @@ jobs:
 
           Write-Output $(Get-Content -Path ./test_results/summary.html) >> $env:GITHUB_STEP_SUMMARY
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: tests_results
           path: test_results/
-
-      - name: Stop Sonar Scanner
-        shell: pwsh
-        if: always()
-        run: |
-          .\.sonar\scanner\dotnet-sonarscanner end `
-            /d:sonar.login="${{ secrets.SONAR_TOKEN }}"

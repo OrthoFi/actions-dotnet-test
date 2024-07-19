@@ -25,46 +25,7 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.BUILD_GITHUB_TOKEN }}
       GITHUB_USERNAME: GitHub
     steps:
-      - uses: actions/setup-java@v3
-        with:
-          distribution: zulu
-          java-version: 17
-
-      - uses: actions/checkout@v3
-
-      - name: Cache SonarCloud Packages
-        uses: actions/cache@v3
-        with:
-          path: ~/sonar/cache
-          key: ${{ runner.os }}-sonar
-          restore-keys: ${{ runner.os }}-sonar
-
-      - name: Cache SonarCloud Scanner
-        id: cache-sonar-scanner
-        uses: actions/cache@v3
-        with:
-          path: ./.sonar/scanner
-          key: ${{ runner.os }}-sonar-scanner
-          restore-keys: ${{ runner.os }}-sonar-scanner
-
-      - name: Install SonarCloud scanner
-        if: steps.cache-sonar-scanner.outputs.cache-hit != 'true'
-        shell: pwsh
-        run: |
-          New-Item -Path ./.sonar/scanner -ItemType Directory
-          dotnet tool update dotnet-sonarscanner --tool-path ./.sonar/scanner
-
-      - name: Start Sonar Scanner
-        shell: pwsh
-        run: |
-          $key = "${{ github.repository }}".Replace("/", "_")
-
-          .\.sonar\scanner\dotnet-sonarscanner begin `
-            /o:orthofi `
-            /k:$key `
-            /d:sonar.host.url=https://sonarcloud.io `
-            /d:sonar.cs.opencover.reportsPaths=artifacts/**/*.xml `
-            /d:sonar.login="${{ secrets.SONAR_TOKEN }}"
+      - uses: actions/checkout@v4
 
       - name: Login to AWS
         if: ${{ inputs.ssm-parameter-paths }}
@@ -89,15 +50,8 @@ jobs:
 
       - name: Test
         env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           OFI__LAUNCH_DARKLY__SDK_KEY: ${{ secrets.LAUNCHDARKLY_DEV_SDK_KEY }}
         shell: pwsh
         run: |
           dotnet test ${{ inputs.solution }} -v q -c Release --nologo --filter ${{ inputs.filter }} --results-directory artifacts --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
 
-      - name: Stop Sonar Scanner
-        shell: pwsh
-        if: always()
-        run: |
-          .\.sonar\scanner\dotnet-sonarscanner end `
-            /d:sonar.login="${{ secrets.SONAR_TOKEN }}"
