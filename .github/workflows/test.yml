@@ -20,7 +20,7 @@ on:
 jobs:
   run:
     name: Run
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     env:
       GITHUB_TOKEN: ${{ secrets.BUILD_GITHUB_TOKEN }}
       GITHUB_USERNAME: GitHub
@@ -29,7 +29,7 @@ jobs:
 
       - name: Login to AWS
         if: ${{ inputs.ssm-parameter-paths }}
-        uses: aws-actions/configure-aws-credentials@v4.0.0
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.BUILD_AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.BUILD_AWS_SECRET_ACCESS_KEY }}
