@@ -2,6 +2,11 @@ name: Test
 on:
   workflow_call:
     inputs:
+      dotnet-framework-version:
+        description: "Only needed for .NET Framework apps. Which version needed for build & test (eg: 4.6, 4.7.1)"
+        required: false
+        type: string
+      
       filter:
         description: Filter to apply when running tests
         required: true
@@ -20,12 +25,16 @@ on:
 jobs:
   run:
     name: Run
-    runs-on: windows-latest
+    runs-on: ${{ inputs.dotnet-framework-version && '[self-hosted, windows, x64]' || 'ubuntu-latest' }}
     env:
       GITHUB_TOKEN: ${{ secrets.BUILD_GITHUB_TOKEN }}
       GITHUB_USERNAME: GitHub
     steps:
       - uses: actions/checkout@v4
+
+      - name: Add msbuild to PATH
+        if: ${{ inputs.dotnet-framework-version }}  
+        uses: microsoft/setup-msbuild@v2
 
       - name: Login to AWS
         if: ${{ inputs.ssm-parameter-paths }}
@@ -48,10 +57,38 @@ jobs:
           prefix: OFI__
           delimiter: __
 
-      - name: Test
+      - name: Test (.NET Core)
+        if: ${{ !inputs.dotnet-framework-version }}
         env:
           OFI__LAUNCH_DARKLY__SDK_KEY: ${{ secrets.LAUNCHDARKLY_DEV_SDK_KEY }}
         shell: pwsh
         run: |
           dotnet test ${{ inputs.solution }} -v q -c Release --nologo --filter ${{ inputs.filter }} --results-directory artifacts --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
 
+      - name: Test (.NET Framework)
+        if: ${{ inputs.dotnet-framework-version}}
+        env:
+          OFI__LAUNCH_DARKLY__SDK_KEY: ${{ secrets.LAUNCHDARKLY_DEV_SDK_KEY }}
+        shell: pwsh
+        run: |
+          Write-Host "######### Running nuget restore #########"
+          nuget restore -verbosity quiet
+
+          Write-Host "######### Running msbuild /clp:ErrorsOnly #########"
+          msbuild /clp:ErrorsOnly
+
+          Write-Host "######### Running dotnet test --no-build #########"
+          dotnet test --no-build --logger "trx;LogFileName=TestResults.trx" --results-directory artifacts --verbosity minimal
+
+          Write-Host "######### Summarizing Test Results #########"
+          Import-Module 'Pester'
+          $results = [xml](Get-Content artifacts\TestResults.trx)
+          $failedTests = $results.TestRun.Results.UnitTestResult | Where-Object { $_.outcome -eq 'Failed' }
+          if ($failedTests.Count -gt 0) {
+              Write-Host "$($failedTests.Count) tests failed:"
+              foreach ($test in $failedTests) {
+                  Write-Host "$($test.testName): $($test.errorMessage)"
+              }
+              exit 1
+          } 
+          Write-Host "All tests passed."
