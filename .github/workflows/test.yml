@@ -25,7 +25,7 @@ on:
 jobs:
   run:
     name: Run
-    runs-on: ${{ inputs.dotnet-framework-version && '[self-hosted, windows, x64]' || 'ubuntu-latest' }}
+    runs-on: ${{ fromJSON(inputs.dotnet-framework-version && '["self-hosted", "windows", "x64"]' || '"ubuntu-latest"') }}
     env:
       GITHUB_TOKEN: ${{ secrets.BUILD_GITHUB_TOKEN }}
       GITHUB_USERNAME: GitHub
