@@ -71,6 +71,9 @@ jobs:
           OFI__LAUNCH_DARKLY__SDK_KEY: ${{ secrets.LAUNCHDARKLY_DEV_SDK_KEY }}
         shell: pwsh
         run: |
+          Write-Host "######### Installing deps #########"  
+          choco install dotnetcore-sdk -y
+
           Write-Host "######### Running nuget restore #########"
           nuget restore -verbosity quiet
 
