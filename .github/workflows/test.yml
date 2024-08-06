@@ -32,6 +32,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10' 
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
       - name: Add msbuild to PATH
         if: ${{ inputs.dotnet-framework-version }}  
         uses: microsoft/setup-msbuild@v2
@@ -65,33 +73,65 @@ jobs:
         run: |
           dotnet test ${{ inputs.solution }} -v q -c Release --nologo --filter ${{ inputs.filter }} --results-directory artifacts --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
 
+      - name: Publish Test Results (.NET Core)
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: ${{ always() && !inputs.dotnet-framework-version }}
+        with:
+          comment_mode: off
+          files: |
+            artifacts/*.trx
+          job_summary: true
+
       - name: Test (.NET Framework)
         if: ${{ inputs.dotnet-framework-version}}
         env:
           OFI__LAUNCH_DARKLY__SDK_KEY: ${{ secrets.LAUNCHDARKLY_DEV_SDK_KEY }}
         shell: pwsh
         run: |
-          Write-Host "######### Installing deps #########"  
-          choco install dotnetcore-sdk -y
-
-          Write-Host "######### Running nuget restore #########"
+          choco install gzip -y
+          Write-Host ""
+          Write-Host "---------------------------------------------------------------------"
+          Write-Host "nuget restore -verbosity quiet"
+          Write-Host "---------------------------------------------------------------------"
           nuget restore -verbosity quiet
 
-          Write-Host "######### Running msbuild /clp:ErrorsOnly #########"
+          Write-Host ""
+          Write-Host "---------------------------------------------------------------------"
+          Write-Host "msbuild /clp:ErrorsOnly"
+          Write-Host "---------------------------------------------------------------------"
           msbuild /clp:ErrorsOnly
 
-          Write-Host "######### Running dotnet test --no-build #########"
-          dotnet test --no-build --logger "trx;LogFileName=TestResults.trx" --results-directory artifacts --verbosity minimal
+          Write-Host ""
+          Write-Host "---------------------------------------------------------------------"
+          Write-Host "Finding test assemblies and running tests"
+          Write-Host "---------------------------------------------------------------------"
+          $testAssemblies = Get-ChildItem -Recurse -Filter *.dll | Where-Object { $_.Name -match 'Test' -and $_.FullName -match 'bin\\Debug\\' }
 
-          Write-Host "######### Summarizing Test Results #########"
-          Import-Module 'Pester'
-          $results = [xml](Get-Content artifacts\TestResults.trx)
-          $failedTests = $results.TestRun.Results.UnitTestResult | Where-Object { $_.outcome -eq 'Failed' }
-          if ($failedTests.Count -gt 0) {
-              Write-Host "$($failedTests.Count) tests failed:"
-              foreach ($test in $failedTests) {
-                  Write-Host "$($test.testName): $($test.errorMessage)"
-              }
-              exit 1
-          } 
-          Write-Host "All tests passed."
+          foreach ($assembly in $testAssemblies) {
+            $assemblyName = [System.IO.Path]::GetFileNameWithoutExtension($assembly.FullName)
+            $trxFileName = "TestResults_$($assemblyName)_$(Get-Date -Format 'yyyyMMddHHmmss').trx"
+
+            Write-Host ""
+            Write-Host "---------------------------------------------------------------------"
+            Write-Host "Running dotnet test for $($assembly.FullName)"
+            Write-Host "---------------------------------------------------------------------"
+            dotnet test $assembly.FullName --logger "trx;LogFileName=$trxFileName" --results-directory artifacts --verbosity minimal
+          }
+
+      - name: Publish Test Results (.NET Framework)
+        uses: EnricoMi/publish-unit-test-result-action/windows@v2
+        if: ${{ always() && inputs.dotnet-framework-version }}
+        with:
+          comment_mode: off
+          files: |
+            artifacts/*.trx
+          job_summary: true
+
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: artifacts/*.trx
+
+
