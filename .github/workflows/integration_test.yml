@@ -18,52 +18,57 @@ on:
         type: string
 
 jobs:
-  ecr:
-    name: ECR
-    runs-on: ["self-hosted", "linux", "x64"]
-    outputs:
-      ecrpw: ${{ steps.getpw.outputs.ecrpw }}
-    steps:
-      - uses: aws-actions/configure-aws-credentials@v4.0.0
-        id: setup
-        with:
-          aws-access-key-id: ${{ secrets.BUILD_AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.BUILD_AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
-          role-to-assume: ${{ secrets.OCKERS_BUILD_ROLE }}
-
-      - name: ECR Generate Password
-        id: getpw
-        shell: bash
-        run: |
-          set -eo pipefail
-          ECR_PW=$(aws ecr get-login-password)
-          echo "ecrpw=$ECR_PW" >> $GITHUB_OUTPUT
-
   run:
     name: Run
     runs-on: ["self-hosted", "linux", "x64"]
     env:
       GITHUB_TOKEN: ${{ secrets.BUILD_GITHUB_TOKEN }}
       GITHUB_USERNAME: GitHub
-    needs: [ecr]
-    services:
-      ofi-sql:
-        image: 221675528805.dkr.ecr.us-east-1.amazonaws.com/db:dev-test
-        ports:
-          - 1433:1433
-        credentials:
-          username: AWS
-          password: ${{ needs.ecr.outputs.ecrpw }}
     steps:
       - uses: actions/checkout@v4
 
-      - uses: aws-actions/configure-aws-credentials@v4.0.0
+      - uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.BUILD_AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.BUILD_AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
           role-to-assume: ${{ secrets.OCKERS_BUILD_ROLE }}
+
+      - name: Login to Amazon ECR
+        run: docker login -u AWS -p $(aws ecr get-login-password --region us-east-1) 221675528805.dkr.ecr.us-east-1.amazonaws.com
+        shell: pwsh
+
+      - name: Docker Prep
+        shell: pwsh
+        run: |
+          Write-Host "Finding and stopping containers using port 1433, to avoid any conflicts..."
+          $container_id = $(docker ps --filter "publish=1433" --format "{{.ID}}")
+          if (-not [string]::IsNullOrEmpty($container_id)) {
+            Write-Host "Stopping and removing container blocking port 1433..."
+            docker stop $container_id | Out-Null
+            docker rm $container_id | Out-Null
+          } else {
+            Write-Host "No containers blocking port 1433."
+          }
+
+      - name: Start SQL Service
+        shell: pwsh
+        run: |
+          Write-Host "Starting SQL Server container..."
+          docker run -d --name ofi_sql -p 1433:1433 221675528805.dkr.ecr.us-east-1.amazonaws.com/db:dev-test | Out-Null
+
+      - name: Wait for SQL Server to be ready
+        shell: pwsh
+        run: |
+          for ($i = 1; $i -le 30; $i++) {
+            $result = docker exec ofi_sql /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P 'Password1!' -Q "SELECT 1" 2>&1
+            if ($LASTEXITCODE -eq 0) {
+              Write-Host "SQL Server is ready!"
+              break
+            }
+            Write-Host "Waiting for SQL Server... ($i)"
+            Start-Sleep -Seconds 2
+          }
 
       - name: Get Parameters
         if: ${{ inputs.ssm-parameter-paths }}
