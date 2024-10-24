@@ -94,21 +94,35 @@ jobs:
           recursive: true
           save-to-environment: true
 
+      - name: Install coverage tool
+        run: dotnet tool install --global dotnet-coverage
+        
       - name: Test
         shell: pwsh
         env:
           OFI__LAUNCH_DARKLY__SDK_KEY: ${{ secrets.LAUNCHDARKLY_DEV_SDK_KEY }}
         run: |
-          dotnet test ${{ inputs.solution }} -v:q -c Release --nologo `
-            --filter ${{ inputs.filter }} `
+          dotnet test ${{ inputs.solution }} -c Release --nologo `
+            --filter "FullyQualifiedName~.IntegrationTests" `
             --results-directory test_results `
-            --logger "html;logfilename=summary.html" `
-            --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
+            --logger "html" `
+            --logger "trx" `
+            --collect:"Code Coverage" `
+            --verbosity quiet
 
-          Write-Output $(Get-Content -Path ./test_results/summary.html) >> $env:GITHUB_STEP_SUMMARY
+      - name: Publish Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: ${{ always() }}
+        with:
+          comment_mode: off
+          files: |
+            test_results/*.trx
+          job_summary: true
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: tests_results
+          name: test_results
           path: test_results/
+          if-no-files-found: error

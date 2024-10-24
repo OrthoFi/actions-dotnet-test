@@ -71,7 +71,13 @@ jobs:
           OFI__LAUNCH_DARKLY__SDK_KEY: ${{ secrets.LAUNCHDARKLY_DEV_SDK_KEY }}
         shell: pwsh
         run: |
-          dotnet test ${{ inputs.solution }} -v q -c Release --nologo --filter ${{ inputs.filter }} --results-directory artifacts --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
+          dotnet test ${{ inputs.solution }} -c Release --nologo `
+            --filter ${{ inputs.filter }} `
+            --results-directory artifacts `
+            --logger "html" `
+            --logger "trx" `
+            --collect:"XPlat Code Coverage" `
+            --verbosity quiet
 
       - name: Publish Test Results (.NET Core)
         uses: EnricoMi/publish-unit-test-result-action@v2
